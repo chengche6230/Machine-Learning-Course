@@ -6,7 +6,7 @@ Machine Learning Homework 1
 
 import numpy as np
 import matplotlib.pyplot as plt
-
+#%%
 
 def inputData(file_path, file_name):
     file = open(file_path+file_name,'r')
@@ -28,14 +28,14 @@ def transpo(ori):
             tm[c][r] = ori[r][c]
     return tm
 
-def add(a,b):
+def add(a, b, minus=False):
     if len(a)!=len(b) or len(a[0])!=len(b[0]):
         print('Error: matrix addition, wrong size of matrix')
         return
     re = np.zeros((len(a),len(a[0])))
     for i in range(len(a)):
         for j in range(len(a[i])):
-            re[i][j] = a[i][j] + b[i][j]
+            re[i][j] = a[i][j] + b[i][j] if not minus else a[i][j] - b[i][j]
     return re
     
 def multi(a,b): #a*b
@@ -48,6 +48,11 @@ def multi(a,b): #a*b
             for k in range(len(a[0])):
                 re[i][j] += a[i][k]*b[k][j]
     return re
+
+def conMulti(c, ma):
+    tmp = ma.copy()
+    tmp[:][:] = ma[:][:] * c
+    return tmp    
 
 def unitM(length, _lambda=1):
     m = np.zeros((length,length))
@@ -96,23 +101,47 @@ def designM(A,N):
             tmp_A[r][N-1-i] = A[0][r]**i
     return tmp_A
 
-#input file and parameter
-file_path = "./"
-file_name = 'test.txt'
+def calErr(A, b, X, N, _lambda):
+    err = 0.0
+    for i in range(len(A)):
+        pre = 0.0
+        for n in range(N):
+            pre += A[i][n] * X[n]
+        err += (pre - b[i])**2
+    for n in range(N):
+        err += _lambda * (X[n]**2)
+        #different with sample output here
+        #seems that TA forgot to multiple lambda
+    return err
+
+def output(err,X,N):
+    print('\tFitting line:\n\t\t',end='')
+    for n in range(N):
+        print('%.10f' % (X[n]), end='')
+        if n!=N-1:
+            print(' X^%d + ' % (N-1-n), end='')
+    print('\n\tTotal error: ',err[0])
+
+#%%
+#Input file and parameter
+
+#file_path = input('Enter file path:')
 #file_name = input('Enter file name:')
 #N = int(input('Enter polynomial bases N:'))
-N = 3
-_lambda = 1
 #_lambda = float(input('Enter lambda:'))
+file_path = "./"
+file_name = 'test.txt'
+N = 3
+_lambda = 10000
 
 data, A, b = inputData(file_path, file_name)
 data_length = len(A[0])
 b = transpo(b) #1xn -> nx1
-print('Origin data:\n',A)
-print('=======================================')
+#print('Origin data:\n',A)
+#print('=====================')
 
+#%%
 #RLSE
-err = 0.0
 
 # X = (ATA + l*I)^-1 * AT * b
 Ad = designM(A,N)
@@ -120,21 +149,51 @@ AdT = transpo(Ad)
 X = add(multi(AdT, Ad),unitM(N,_lambda))
 X = LUdecompo(X)
 X = multi(multi(X, AdT), b)
-print('X:\n',X)
 
-    #compute err by using w
-    #output result
+print('LSE:')
+output(calErr(Ad, b, X, N, _lambda), X, N)
+
+#%%
+#Newton's Method
+
+# L = ||AX-b||^2
+X2 = np.zeros((N,1))
+'''
+tmp1 = conMulti(2, multi(multi(AdT, Ad), X2))
+tmp2 = conMulti(2, multi(AdT, b))
+delf = add(tmp1, tmp2, True)
+Hfinv = LUdecompo(conMulti(2, multi(AdT, Ad)))
+#維度錯誤，delf(Nx1)不能和Hf(NxN)相乘
+#X2 = add(X2, multi(delf, Hfinv), True)
+print(X2)
+'''
+X2 = LUdecompo(multi(AdT, Ad))
+X2 = multi(multi(X2, AdT), b)
+print("Newton's Method:")
+output(calErr(Ad, b, X2, N, 0), X2, N)
+
+#%%
+#Visualize
+
+#RLSE
+fig = plt.figure()
+ax = fig.add_subplot(2, 1, 1)
+ax.scatter(A[0],b)
+x_line = np.linspace(-6,6,30000) #sample points of the regression line
+y_line = np.zeros(len(x_line))
+for i in range(len(x_line)):
+    for n in  range(N):
+        y_line[i] += X[n] * (x_line[i]**(N-n-1))
+ax.plot(x_line, y_line, 'r')
 
 #Newton's Method
-w2 = np.zeros(N)
-err2 = 0.0
+ax = fig.add_subplot(2, 1, 2)
+ax.scatter(A[0],b)
+x_line = np.linspace(-6,6,30000)
+y_line = np.zeros(len(x_line))
+for i in range(len(x_line)):
+    for n in  range(N):
+        y_line[i] += X2[n] * (x_line[i]**(N-n-1))
+ax.plot(x_line, y_line, 'r')
 
-    #use formula repeatly compute w
-    #implement matrix minus, Gradient, Hession matrix
-    #determine when to converge
-    
-    #compute err by using w
-    #output result
-
-
-#visualize
+plt.show()
