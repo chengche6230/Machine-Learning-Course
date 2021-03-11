@@ -125,14 +125,14 @@ def output(err,X,N):
 #%%
 #Input file and parameter
 
-#file_path = input('Enter file path:')
-#file_name = input('Enter file name:')
-#N = int(input('Enter polynomial bases N:'))
-#_lambda = float(input('Enter lambda:'))
-file_path = "./"
-file_name = 'test.txt'
-N = 3
-_lambda = 10000
+file_path = input('Enter file path:')
+file_name = input('Enter file name:')
+N = int(input('Enter polynomial bases N:'))
+_lambda = float(input('Enter lambda:'))
+#file_path = "./"
+#file_name = 'test.txt'
+#N = 2
+#_lambda = 0
 
 data, A, b = inputData(file_path, file_name)
 data_length = len(A[0])
@@ -158,17 +158,16 @@ output(calErr(Ad, b, X, N, _lambda), X, N)
 
 # L = ||AX-b||^2
 X2 = np.zeros((N,1))
-'''
+
 tmp1 = conMulti(2, multi(multi(AdT, Ad), X2))
 tmp2 = conMulti(2, multi(AdT, b))
 delf = add(tmp1, tmp2, True)
 Hfinv = LUdecompo(conMulti(2, multi(AdT, Ad)))
-#維度錯誤，delf(Nx1)不能和Hf(NxN)相乘
-#X2 = add(X2, multi(delf, Hfinv), True)
-print(X2)
-'''
-X2 = LUdecompo(multi(AdT, Ad))
-X2 = multi(multi(X2, AdT), b)
+X2 = add(X2, multi(Hfinv, delf), True)
+
+#X2 = LUdecompo(multi(AdT, Ad))
+#X2 = multi(multi(X2, AdT), b)
+
 print("Newton's Method:")
 output(calErr(Ad, b, X2, N, 0), X2, N)
 
