@@ -59,13 +59,22 @@ def printImg(img, img_size):
             print("*", end=" ") if img[i][j] > 128 else print(".", end=" ")
         print()
 
-def printPredImg(px, img_size):
+def printPredImg_DIS(px, img_size):
     for n in range(10):
         print(n, ":")
         for i in range(img_size):
             for j in range(img_size):
                 pre = np.argmax(px[n][i*img_size + j])
                 print("*", end=" ") if pre > 16 else print(".", end=" ")
+            print()
+        print()
+
+def printPredImg_CON(mean, img_size):
+    for n in range(10):
+        print(n, ":")
+        for i in range(img_size):
+            for j in range(img_size):
+               print("*", end=" ") if mean[n][i * img_size + j] > 128 else print(".", end=" ")
             print()
         print()
         
@@ -127,7 +136,7 @@ for k in trange(test_num):
 print("Error rate:", err / test_num)
 
 print("Imagination of numbers in Bayesian classifier:\n")
-printPredImg(px, img_size)
+printPredImg_DIS(px, img_size)
 
 #%%
 # Continous Mode
@@ -145,38 +154,56 @@ for k in trange(train_num):
             mean[num][i*img_size + j] += train_img[k][i][j]
 for n in range(10):
     mean[n] = mean[n] / count2[n]
+    
 for k in trange(train_num):
     num = train_label[k]
     for i in range(img_size):
         for j in range(img_size):
-            index = i*img_size + j
+            index = i * img_size + j
             var[num][index] += (train_img[k][i][j] - mean[num][index])**2
 for n in range(10):
     var[n] = var[n] / count2[n]
+# Prior
 count2 = count2 / train_num
 
 # Test classifier
-err = 0
-for k in range(test_num):
+err2 = 0
+for k in trange(test_num):
     post = np.zeros(10)
     for n in range(10):
         post[n] = math.log(count2[n])
         for i in range(img_size):
             for j in range(img_size):
-                index = i*img_size + j
+                index = i * img_size + j
                 var[n][index] = var[n][index] if var[n][index]!=0 else 1e-5
                 post[n] -= 0.5 * math.log(2 * PI * var[n][index])
                 post[n] -= 0.5 * ((test_img[k][i][j] - mean[n][index])**2 / var[n][index])
-    print(post)
-    post = post / sum(post)
-    print(post)
+    #post = -post #negative log
+    #post = post / sum(post)
     pred = np.argmax(post)
-    output(post, pred, test_label[k])
-    input()
+    #output(post, pred, test_label[k])
     if pred != test_label[k]:
-        err += 1
+        err2 += 1
     
-print("Error rate:", err / test_num)
+print("Error rate:", err2 / test_num)
 
 print("Imagination of numbers in Bayesian classifier:\n")
-#printPredImg(px, img_size)
+printPredImg_CON(mean, img_size)
+
+#%%
+#Testttt
+for n in range(10):
+    print(n, ":")
+    for i in range(img_size):
+        for j in range(img_size):
+            pre = np.argmax(px[n][i*img_size + j])
+            print("*", end=" ") if pre > 16 else print(".", end=" ")
+        print()
+    print()
+    print("=============================================================")
+    for i in range(img_size):
+        for j in range(img_size):
+            print("*", end=" ") if mean[n][i * img_size + j] > 128 else print(".", end=" ")
+        print()
+    print()
+    input()
