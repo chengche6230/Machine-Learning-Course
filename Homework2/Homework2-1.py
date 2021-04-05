@@ -87,7 +87,7 @@ def output(post, pred, label):
 
 #%%
 
-FILE_PATH = "./dataset/"
+FILE_PATH = "./2-1dataset/"
 TRAIN_IMAGE_FILE = "train-images.idx3-ubyte"
 TRAIN_LABEL_FILE = "train-labels.idx1-ubyte"
 TEST_IMAGE_FILE = "t10k-images.idx3-ubyte"
