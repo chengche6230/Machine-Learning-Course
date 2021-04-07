@@ -117,6 +117,7 @@ for k in trange(train_num):
             px[num][i*img_size + j][train_img[k][i][j]//8] += 1
 count = count / train_num
 
+#%%
 # Test classifier
 err = 0
 for k in trange(test_num):
@@ -129,10 +130,11 @@ for k in trange(test_num):
                 post[n] += math.log(x/count[n])
     post = post / sum(post)
     pred = np.argmax(post)
-    output(post, pred, test_label[k])
+    #output(post, pred, test_label[k])
     if pred != test_label[k]:
         err += 1
-    
+
+print("Discrete mode--------")
 print("Error rate:", err / test_num)
 
 print("Imagination of numbers in Bayesian classifier:\n")
@@ -166,6 +168,7 @@ for n in range(10):
 # Prior
 count2 = count2 / train_num
 
+#%%
 # Test classifier
 err2 = 0
 for k in trange(test_num):
@@ -181,10 +184,11 @@ for k in trange(test_num):
     post = -post #negative log
     post = post / sum(post)
     pred = np.argmin(post)
-    output(post, pred, test_label[k])
+    #output(post, pred, test_label[k])
     if pred != test_label[k]:
         err2 += 1
-    
+
+print("\nContinous mode--------")
 print("Error rate:", err2 / test_num)
 
 print("Imagination of numbers in Bayesian classifier:\n")

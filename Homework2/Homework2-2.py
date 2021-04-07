@@ -30,7 +30,7 @@ def visualize(ta, tb, a, b, m, N):
     y_line = np.zeros(len(x_line))
     
     # Prior
-    if a>0 and b>0:
+    if ta>0 and tb>0:
         ax = fig.add_subplot(1, 3, 1)
         ax.set_title("Prior")
         for i in range(len(x_line)):
@@ -64,8 +64,8 @@ FILE = "./2-2input.txt"
 
 #a = float(input("Input a: "))
 #b = float(input("Input b: "))
-a = 10
-b = 1
+a = 0
+b = 0
 
 with open(FILE, 'r') as file:
     index = 1
