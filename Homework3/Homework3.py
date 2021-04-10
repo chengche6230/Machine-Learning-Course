@@ -135,6 +135,22 @@ def visualize(X, Y, LOG, N, a, w, sample):
     
     plt.show()
 
+def dynaVisul(X, Y, n, a, w, sample, m, _lambda):
+    LOG_dyna = {'mean': [], 'var': []}
+    LOG_dyna['mean'].append([])
+    LOG_dyna['var'].append([])
+    
+    sample_x = np.linspace(-2, 2, sample)
+    for i in range(sample):
+        tdMat = designM(sample_x[i], n)
+        LOG_dyna['mean'][0].append(float(mul(m.T, tdMat.T)))
+        LOG_dyna['var'][0].append(float(1/a + mul(mul(tdMat, inv(_lambda)), tdMat.T)))
+    fig = plt.figure(figsize=(8, 6))
+    ax = fig.add_subplot(1, 1, 1)
+    ax.plot(X, Y, "b.")
+    figSetting(ax, "Experiment : "+str(len(X)), 0, LOG_dyna, sample)
+    plt.show()
+
 def logData(LOG, sample, mean, var, n):
     LOG['mean'].append([])
     LOG['var'].append([])
@@ -197,6 +213,9 @@ def BayesianLinearRegression(b, n, a, w):
         if data_num == 10 or data_num == 50:
             logData(LOG, sample, m, _lambda, n)
             
+        # Dynamic visualize
+        #dynaVisul(X, Y, n, a, w, sample, m, _lambda)
+            
     logData(LOG, sample, m, _lambda, n)
     visualize(X, Y, LOG, n, a, w, sample)
     
@@ -209,6 +228,6 @@ if __name__ == "__main__":
     a = 1
     w = [1, 2, 3, 4]
     
-    SequentialEstimator(m, s)
+    #SequentialEstimator(m, s)
     
     BayesianLinearRegression(b, n, a, w)
