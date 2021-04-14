@@ -151,7 +151,7 @@ def dynaVisul(X, Y, n, a, w, sample, m, _lambda):
     figSetting(ax, "Experiment : "+str(len(X)), 0, LOG_dyna, sample)
     plt.show()
 
-def logData(LOG, sample, mean, var, n):
+def logData(LOG, sample, mean, var, n, a):
     LOG['mean'].append([])
     LOG['var'].append([])
     sample_x = np.linspace(-2, 2, sample)
@@ -167,6 +167,7 @@ def BayesianLinearRegression(b, n, a, w):
     m = np.zeros((n, 1))
     _lambda = inv(covarMat(b, n))
     data_num = 0
+    a = 1 / a
     
     sample = 500
     
@@ -175,7 +176,7 @@ def BayesianLinearRegression(b, n, a, w):
     con_thres = 1e-3
     
     while con_count < CONVERGE:
-        x, y = basisData(n, a, w)
+        x, y = basisData(n, 1/a, w)
         X.append(x)
         Y.append(y)
         data_num += 1
@@ -185,11 +186,11 @@ def BayesianLinearRegression(b, n, a, w):
         
         # Update prior
         last_lambda = _lambda
-        _lambda = last_lambda + (1/a) * mul(dMat.T, dMat)
+        _lambda = last_lambda + a * mul(dMat.T, dMat)
         
         last_m = m
         tm = mul(last_lambda, m)
-        tm2 = (1/a) * mul(dMat.T, [[y]])
+        tm2 = a * mul(dMat.T, [[y]])
         m = mul(inv(_lambda), tm + tm2)
         
         # Posterior mean, var
@@ -211,12 +212,12 @@ def BayesianLinearRegression(b, n, a, w):
         
         # Log data
         if data_num == 10 or data_num == 50:
-            logData(LOG, sample, m, _lambda, n)
+            logData(LOG, sample, m, _lambda, n, a)
             
         # Dynamic visualize
         #dynaVisul(X, Y, n, a, w, sample, m, _lambda)
             
-    logData(LOG, sample, m, _lambda, n)
+    logData(LOG, sample, m, _lambda, n, a)
     visualize(X, Y, LOG, n, a, w, sample)
     
 if __name__ == "__main__":
@@ -224,9 +225,9 @@ if __name__ == "__main__":
     s = 5
     
     b = 1
-    n = 4
-    a = 1
-    w = [1, 2, 3, 4]
+    n = 3
+    a = 3
+    w = [1, 2, 3]
     
     #SequentialEstimator(m, s)
     
