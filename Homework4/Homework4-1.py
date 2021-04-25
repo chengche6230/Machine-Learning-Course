@@ -35,11 +35,21 @@ def Gaussian(mean, var):
     x = x * (var**0.5) + mean
     return x
 
-def diagonalMat(x, N):
+def gradient(dMat, w, y, N):
+    grad = mul(dMat, w)
+    for i in range(N):
+        grad[i] = y[i] - 1/(1 + math.exp(-1 * grad[i]))
+    grad = mul(dMat.T, grad)
+    return grad
+
+def Hessian(dMat, w, N):
     D = np.zeros((N, N))
     for i in range(N):
-        D[i][i] = math.exp(-1 * x[i]) / ((1 + math.exp(-1 * x[i]))**2)
-    return D
+        t = mul(dMat[i], w)
+        D[i][i] = math.exp(-t) / ((1 + math.exp(-t))**2)
+    #print("D:\n", D)
+    H = mul(mul(dMat.T, D), dMat)
+    return H
 
 def activate(x):
     return 1/(1 + math.exp(-1 * x))
@@ -121,13 +131,14 @@ def visualize(N, D1, D2, pre_gd, pre_nt):
     plt.show()
 
 if __name__ == "__main__":
-    lr = 1e-1
+    lr = 1e-2
     N = 50
     mx1 = my1 = 1
-    mx2 = my2 = 10
+    mx2 = my2 = 3
     vx1 = vy1 = 2
-    vx2 = vy2 = 2
+    vx2 = vy2 = 4
     
+    # Data pre-process
     D1 = []
     D2 = []
     for i in range(N):
@@ -142,43 +153,60 @@ if __name__ == "__main__":
     for i in range(len(D1), len(D1) + len(D2)):
         y[i] = 1
     
+    # Converge parameter
+    conv_thres_gd = 18e-3
+    conv_thres_nt = 18e-3
+    converge = 5
+    
     # Gradient descent
     w = np.zeros((3, 1))
-    for i in range(30):
-        grad = mul(dMat, w)
-        for i in range(2 * N):
-            grad[i] = y[i] - 1/(1 + math.exp(-1 * grad[i]))
-        grad = mul(dMat.T, grad)
-        w += lr * grad
+    last_w = np.zeros((3, 1))
+    conv_count = 0
+    _iter = 0
+    while conv_count < converge:
+        _iter += 1
+        
+        last_w = w.copy()
+        w += lr * gradient(dMat, w, y, 2 * N)
+        
+        _last = sum(abs(last_w))
+        _curr = sum(abs(w))
+        conv_count  = conv_count + 1 if abs(_last - _curr) < conv_thres_gd else 0
+        
+    print("Converge iteration:", _iter)
         
     predict_gd = validate(N, w, D1, D2)
     table = confusionMat(y, predict_gd, N)
 
-    output(w, table, "Gradient descent:")
+    output(w, table, "\nGradient descent:")
     print("-----------------------------------------------")
+    
     # Newton's method
     w2 = np.zeros((3, 1))
-    for i in range(30):
-        grad = mul(dMat, w2)
-        D = diagonalMat(grad, 2 * N)
-        for i in range(2 * N):
-            grad[i] = y[i] - 1/(1 + math.exp(-1 * grad[i]))
-        grad = mul(dMat.T, grad)
-        
-        H = mul(mul(dMat.T, D), dMat)
-        print("D:\n", D)
-        print("Grad:\n", grad)
-        print("H:\n", H)
+    last_w2 = np.zeros((3, 1))
+    conv_count = 0
+    _iter = 0
+    while conv_count < converge:
+        _iter += 1
+        grad = gradient(dMat, w2, y, 2 * N)
+        H = Hessian(dMat, w2, 2 * N)
         if np.linalg.det(H) == 0:
             print("Hessian isn't invertible.")
         H_inv = inv(H)
-        print("H inv:\n", H_inv)
-        print("multipy:\n", mul(H_inv, grad))
-        w2 -= mul(H_inv, grad)
-        print(w2)
-        input()
+        
+        last_w2 = w2.copy()
+        w2 += lr * mul(H_inv, grad)
+        
+        _last = sum(abs(last_w2))
+        _curr = sum(abs(w2))
+        conv_count  = conv_count + 1 if abs(_last - _curr) < conv_thres_nt else 0
     
-    #visualize(N, D1, D2, predict_gd, predict_gd)
+    print("Converge iteration:", _iter)
     
-    
-    
+    predict_nt = validate(N, w2, D1, D2)
+    table = confusionMat(y, predict_nt, N)
+
+    output(w2, table, "\nNewton's method':")
+
+
+    visualize(N, D1, D2, predict_gd, predict_nt)
