@@ -4,6 +4,7 @@ Machine Learning Homework 4-2
     
 """
 import numpy as np
+from numpy import matmul as mul
 from tqdm import trange
 
 def loadData(train_num, test_num, img_size):
@@ -59,15 +60,127 @@ def loadData(train_num, test_num, img_size):
     """  
     return train_img, train_label
 
+def dataPreprocess(img, train_num, img_size):
+    tmp_img = np.zeros((train_num, img_size, img_size))
+    for n in trange(train_num):
+        for i in range(img_size):
+            for j in range(img_size):
+                tmp_img[n][i][j] = 1 if img[n][i][j] > 127 else 0
+    return tmp_img
+    
+def printImg(img, img_size):
+    for i in range(img_size):
+        for j in range(img_size):
+            print("*", end=" ") if img[i][j] > 0 else print(".", end=" ")
+        print()
+
+def printImagination(p, img_size, labeled=False):
+    if labeled:
+        print("labeled", end=" ")
+    for n in range(10):
+        print("class %d:" % n)
+        for i in range(img_size):
+            for j in range(img_size):
+                print("*", end=" ") if p[n][i][j] > 0.5 else print(".", end=" ")
+            print()
+        print()
+        
+def confusionMat(N, train_label, train_num, w):
+    TP, FN, FP, TN = 0, 0, 0, 0
+    for k in range(train_num):
+        truth = train_label[k]
+        pre_num = np.argmax(w[k])
+        TP = TP + 1 if truth==N and pre_num==N else TP
+        FN = FN + 1 if truth==N and pre_num!=N else FN
+        FP = FP + 1 if truth!=N and pre_num==N else FP
+        TN = TN + 1 if truth!=N and pre_num!=N else TN
+    return [TP, FN, FP, TN]
+        
+def printResult(train_label, train_num, w, _iter):
+    err = train_num
+    for n in range(10):
+        table = confusionMat(n, train_label, train_num, w)
+        print("--------------------------------------------------------")
+        print(f"Confusion Matrix {n}:")
+        print(f"\t\t\tPredict {n}\tPredict not {n}")
+        print(f"Is {n}\t\t\t{table[0]}\t\t\t{table[1]}")
+        print(f"Isn't {n}\t\t\t{table[2]}\t\t\t{table[3]}")
+        sens = table[0] / (table[0] + table[1])
+        spec = table[3] / (table[2] + table[3])
+        print(f"\nSensitivity (Successfully predict number {n})\t: {sens}")
+        print(f"Specificity (Successfully predict not number {n}): {spec}")
+        err -= table[0]
+    
+    print("--------------------------------------------------------")
+    print(f"Total iteration to converge: {_iter}")
+    print(f"Total error rate: {err/train_num}")
+
+#%%
 if __name__ == "__main__":
     train_num = 60000
     test_num = 10000
     img_size = 28
     
+    input("Dont F5, F9 only")
+    
     train_img, train_label = loadData(train_num, test_num, img_size)
     print("\nData loaded.")
     
-    for n in trange(train_num):
+    img = dataPreprocess(train_img, train_num, img_size)
+    
+    lam = np.full((10), 1/10) # chance to be 0~9
+    p = np.zeros((10, img_size, img_size))
+    last_p  = np.zeros((10, img_size, img_size))
+    for n in range(10):
         for i in range(img_size):
             for j in range(img_size):
-                train_img[n][i][j] = 1 if train_img[n][i][j]>127 else 0
+                # Initial p within range 0.25~0.75
+                p[n][i][j] = np.random.rand()/2 + 0.25
+    
+    w = np.zeros((train_num, 10))
+    max_iter = 10
+    conv_thres = 0.01
+    _iter = 0
+    while _iter < max_iter:
+        _iter += 1
+        w = np.zeros((train_num, 10))
+        
+        # E step, find w0~w9 of every image (responsibility)
+        for k in trange(train_num):
+            for n in range(10):
+                w[k][n] = lam[n]
+                for i in range(img_size):
+                    for j in range(img_size):
+                        w[k][n] *= (p[n][i][j] ** img[k][i][j])
+                        w[k][n] *= ((1-p[n][i][j]) ** (1-img[k][i][j]))
+                #log_like = mul(img[k], np.log(p[n])) + mul(1-img[k], np.log(1-p[n]))
+                #w[k][n] = np.log(lam[n]) + sum(sum(log_like))
+            #w[k] = np.exp(w[k] * 1e-4) # scalar for resonable number
+            w[k] = w[k]/sum(w[k])
+            
+        # M step
+        for n in trange(10):
+            # Update lambda
+            lam[n] = sum(w[:, n]) / train_num
+            
+            # Update every p
+            wn = w[:, n].reshape(train_num, 1)
+            for i in range(img_size):
+                for j in range(img_size):
+                    xd = img[:, i, j].reshape(train_num, 1) # d means i*28+j
+                    p[n][i][j] = mul(wn.T, xd) / sum(w[:, n])
+                    p[n][i][j] = 1e-5 if p[n][i][j]==0 else p[n][i][j]
+        
+        printImagination(p, img_size)
+        delta = sum(sum(sum(abs(p - last_p))))
+        print(f"No. of Iteration: {_iter}, Difference: {delta}\n")
+        print("--------------------------------------------------------")
+        last_p = p.copy()
+        if delta < conv_thres:
+            break
+        
+    print("--------------------------------------------------------")
+    printImagination(p, img_size, labeled=True)
+    printResult(train_label, train_num, w, _iter)
+    
+    
