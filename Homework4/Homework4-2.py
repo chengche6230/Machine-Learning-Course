@@ -74,54 +74,69 @@ def printImg(img, img_size):
             print("*", end=" ") if img[i][j] > 0 else print(".", end=" ")
         print()
 
-def printImagination(p, img_size, labeled=False):
+def assignLabel(train_label, train_num, w):
+    mapping = np.zeros((10), dtype=np.uint32)
+    counting = np.zeros((10, 10), dtype=np.uint32)
+    for k in range(train_num):
+        counting[train_label[k]][np.argmax(w[k])] += 1
+    for n in range(10):
+        index = np.argmax(counting) # return a 0~99 value
+        label = index // 10
+        _class = index % 10
+        mapping[label] = _class
+        counting[:,_class] = 0
+        counting[label,:] = 0
+    return mapping
+
+def printImagination(p, img_size, mapping, labeled=False):
     if labeled:
         print("labeled", end=" ")
     for n in range(10):
         print("class %d:" % n)
+        real_label = mapping[n]
         for i in range(img_size):
             for j in range(img_size):
-                print("*", end=" ") if p[n][i][j] > 0.5 else print(".", end=" ")
+                print("*", end=" ") if p[real_label][i][j] > 0.5 else print(".", end=" ")
             print()
         print()
         
-def confusionMat(N, train_label, train_num, w):
-    TP, FN, FP, TN = 0, 0, 0, 0
-    for k in range(train_num):
-        truth = train_label[k]
-        pre_num = np.argmax(w[k])
-        TP = TP + 1 if truth==N and pre_num==N else TP
-        FN = FN + 1 if truth==N and pre_num!=N else FN
-        FP = FP + 1 if truth!=N and pre_num==N else FP
-        TN = TN + 1 if truth!=N and pre_num!=N else TN
-    return [TP, FN, FP, TN]
-        
-def printResult(train_label, train_num, w, _iter):
+def printResult(train_label, train_num, mapping, w, _iter):
     err = train_num
+    tb = np.zeros((10, 2, 2), dtype=np.uint32)
+    
+    mapping_inv = np.zeros((10), dtype=np.int32)# idx->value = cluster->label
+    for i in range(10):
+        mapping_inv[i] = np.where(mapping == i)[0]
+        
+    for k in range(train_num):
+        pred = mapping_inv[np.argmax(w[k])]
+        truth = train_label[k]
+        for n in range(10):
+            tb[n][0][0] = tb[n][0][0] + 1 if truth==n and pred==n else tb[n][0][0] #TP
+            tb[n][0][1] = tb[n][0][1] + 1 if truth==n and pred!=n else tb[n][0][1] #FN
+            tb[n][1][0] = tb[n][1][0] + 1 if truth!=n and pred==n else tb[n][1][0] #FP
+            tb[n][1][1] = tb[n][1][1] + 1 if truth!=n and pred!=n else tb[n][1][1] #TN
+        
     for n in range(10):
-        table = confusionMat(n, train_label, train_num, w)
         print("--------------------------------------------------------")
         print(f"Confusion Matrix {n}:")
         print(f"\t\t\tPredict {n}\tPredict not {n}")
-        print(f"Is {n}\t\t\t{table[0]}\t\t\t{table[1]}")
-        print(f"Isn't {n}\t\t\t{table[2]}\t\t\t{table[3]}")
-        sens = table[0] / (table[0] + table[1])
-        spec = table[3] / (table[2] + table[3])
+        print(f"Is {n}\t\t\t{tb[n][0][0]}\t\t\t{tb[n][0][1]}")
+        print(f"Isn't {n}\t\t\t{tb[n][1][0]}\t\t{tb[n][1][1]}")
+        sens = tb[n][0][0] / (tb[n][0][0] + tb[n][0][1])
+        spec = tb[n][1][1] / (tb[n][1][0] + tb[n][1][1])
         print(f"\nSensitivity (Successfully predict number {n})\t: {sens}")
         print(f"Specificity (Successfully predict not number {n}): {spec}")
-        err -= table[0]
+        err -= tb[n][0][0]
     
     print("--------------------------------------------------------")
     print(f"Total iteration to converge: {_iter}")
     print(f"Total error rate: {err/train_num}")
 
-#%%
 if __name__ == "__main__":
     train_num = 60000
     test_num = 10000
     img_size = 28
-    
-    input("Dont F5, F9 only")
     
     train_img, train_label = loadData(train_num, test_num, img_size)
     print("\nData loaded.")
@@ -138,8 +153,9 @@ if __name__ == "__main__":
                 p[n][i][j] = np.random.rand()/2 + 0.25
     
     w = np.zeros((train_num, 10))
+    mapping = np.array([i for i in range(10)], dtype=np.uint32)
     max_iter = 10
-    conv_thres = 0.01
+    conv_thres = 40
     _iter = 0
     while _iter < max_iter:
         _iter += 1
@@ -153,9 +169,6 @@ if __name__ == "__main__":
                     for j in range(img_size):
                         w[k][n] *= (p[n][i][j] ** img[k][i][j])
                         w[k][n] *= ((1-p[n][i][j]) ** (1-img[k][i][j]))
-                #log_like = mul(img[k], np.log(p[n])) + mul(1-img[k], np.log(1-p[n]))
-                #w[k][n] = np.log(lam[n]) + sum(sum(log_like))
-            #w[k] = np.exp(w[k] * 1e-4) # scalar for resonable number
             w[k] = w[k]/sum(w[k])
             
         # M step
@@ -171,7 +184,7 @@ if __name__ == "__main__":
                     p[n][i][j] = mul(wn.T, xd) / sum(w[:, n])
                     p[n][i][j] = 1e-5 if p[n][i][j]==0 else p[n][i][j]
         
-        printImagination(p, img_size)
+        printImagination(p, img_size, mapping)
         delta = sum(sum(sum(abs(p - last_p))))
         print(f"No. of Iteration: {_iter}, Difference: {delta}\n")
         print("--------------------------------------------------------")
@@ -180,7 +193,8 @@ if __name__ == "__main__":
             break
         
     print("--------------------------------------------------------")
-    printImagination(p, img_size, labeled=True)
-    printResult(train_label, train_num, w, _iter)
+    mapping = assignLabel(train_label, train_num, w)
+    printImagination(p, img_size, mapping, labeled=True)
+    printResult(train_label, train_num, mapping, w, _iter)
     
     
