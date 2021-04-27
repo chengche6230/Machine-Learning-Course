@@ -89,9 +89,9 @@ def assignLabel(train_label, train_num, w):
     return mapping
 
 def printImagination(p, img_size, mapping, labeled=False):
-    if labeled:
-        print("labeled", end=" ")
     for n in range(10):
+        if labeled:
+            print("labeled", end=" ")
         print("class %d:" % n)
         real_label = mapping[n]
         for i in range(img_size):
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     w = np.zeros((train_num, 10))
     mapping = np.array([i for i in range(10)], dtype=np.uint32)
     max_iter = 10
-    conv_thres = 40
+    conv_thres = 30
     _iter = 0
     while _iter < max_iter:
         _iter += 1
