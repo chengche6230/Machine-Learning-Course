@@ -154,8 +154,8 @@ if __name__ == "__main__":
     
     w = np.zeros((train_num, 10))
     mapping = np.array([i for i in range(10)], dtype=np.uint32)
-    max_iter = 10
-    conv_thres = 30
+    max_iter = 15
+    conv_thres = 10
     _iter = 0
     while _iter < max_iter:
         _iter += 1
