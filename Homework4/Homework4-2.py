@@ -165,10 +165,8 @@ if __name__ == "__main__":
         for k in trange(train_num):
             for n in range(10):
                 w[k][n] = lam[n]
-                for i in range(img_size):
-                    for j in range(img_size):
-                        w[k][n] *= (p[n][i][j] ** img[k][i][j])
-                        w[k][n] *= ((1-p[n][i][j]) ** (1-img[k][i][j]))
+                w[k][n] *= np.prod(p[n] ** img[k] )
+                w[k][n] *= np.prod((1-p[n]) ** (1-img[k]))
             w[k] = w[k]/sum(w[k])
             
         # M step
