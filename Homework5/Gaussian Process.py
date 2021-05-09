@@ -7,6 +7,7 @@ import numpy as np
 from numpy import matmul as mul
 from numpy.linalg import inv
 import matplotlib.pyplot as plt
+from scipy.optimize import minimize
 
 def loadData():
     X = []
@@ -49,24 +50,34 @@ def predict(X, Y, C, beta, sigma, alpha, length):
         
     return mean, var
 
-def visualize(data, pre_m, pre_v):
+def visualize(title, data, pre_m, pre_v):
     fig = plt.figure()
     x = np.linspace(-60, 60, len(pre_m))
     interval = 1.96 * (pre_v ** 0.5) # 95% Confidence Interval
     
     ax = fig.add_subplot(1, 1, 1)
+    ax.set_title(title)
     ax.plot(data[0], data[1], "k.")
     ax.plot(x, pre_m, "r-")
     ax.fill_between(x, pre_m + interval, pre_m - interval, color='pink')
+    ax.set_xlim([-60, 60])
     
     plt.show()
 
-def GaussianProcess(X, Y, beta, sigma, alpha, length):
-    C = Cov(X, beta, sigma, alpha, length)
-
-    mean, var = predict(X, Y, C, beta, sigma, alpha, length)
+def negativeLogLikelihood(theta, X, Y, beta):
+    theta = theta.reshape(len(theta), 1)
+    y = np.array(Y).reshape((len(Y), 1))
+    C = Cov(X, beta, theta[0], theta[1], theta[2])
     
-    visualize([X, Y], mean, var)
+    likeli = (np.log(np.linalg.det(C))) / 2
+    likeli += (mul(mul(y.T, inv(C)), y)) / 2
+    likeli += np.log(2 * np.pi) * len(X) / 2
+    return float(likeli[0])
+
+def GaussianProcess(X, Y, beta, sigma, alpha, length, plt_title=''):
+    C = Cov(X, beta, sigma, alpha, length)
+    mean, var = predict(X, Y, C, beta, sigma, alpha, length)    
+    visualize(plt_title, [X, Y], mean, var)
 
 if __name__ == "__main__":
     X, Y = loadData()
@@ -76,8 +87,18 @@ if __name__ == "__main__":
     alpha = 1
     length = 1
     
-    GaussianProcess(X, Y, beta, sigma, alpha, length)
+    GaussianProcess(X, Y, beta, sigma, alpha, length, f"Origin: sig={sigma}, alpha={alpha}, len={length}")
     
     # Optimize parameters
+    opt = minimize(negativeLogLikelihood, [sigma, alpha, length],
+                   bounds=((1e-6, 1e6), (1e-6, 1e6), (1e-6, 1e6)), 
+                   args=(X, Y, beta))
     
+    sigma = opt.x[0]
+    alpha = opt.x[1]
+    length = opt.x[2]
+    
+    GaussianProcess(X, Y, 
+                    beta, sigma, alpha, length, 
+                    f"Optimized: sig={sigma:.4f}, alpha={alpha:.4f}, len={length:.4f}")
     
