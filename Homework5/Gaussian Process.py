@@ -70,6 +70,7 @@ def negativeLogLikelihood(theta, X, Y, beta):
     C = Cov(X, beta, theta[0], theta[1], theta[2])
     
     likeli = (np.log(np.linalg.det(C))) / 2
+    #likeli = np.sum(np.log(np.diagonal(np.linalg.cholesky(C))))
     likeli += (mul(mul(y.T, inv(C)), y)) / 2
     likeli += np.log(2 * np.pi) * len(X) / 2
     return float(likeli[0])
