@@ -61,6 +61,7 @@ def visualize(title, data, pre_m, pre_v):
     ax.plot(x, pre_m, "r-")
     ax.fill_between(x, pre_m + interval, pre_m - interval, color='pink')
     ax.set_xlim([-60, 60])
+    ax.set_ylim([-5, 5])
     
     plt.show()
 
@@ -89,7 +90,7 @@ if __name__ == "__main__":
     length = 1
     
     GaussianProcess(X, Y, beta, sigma, alpha, length, f"Origin: sig={sigma}, alpha={alpha}, len={length}")
-    
+
     # Optimize parameters
     opt = minimize(negativeLogLikelihood, [sigma, alpha, length],
                    bounds=((1e-6, 1e6), (1e-6, 1e6), (1e-6, 1e6)), 

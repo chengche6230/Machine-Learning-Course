@@ -7,7 +7,6 @@ import time
 import numpy as np
 import matplotlib.pyplot as plt
 from tqdm import trange
-
 from svmutil import *
 
 train_num = 5000
@@ -16,6 +15,7 @@ img_size = 28
 img_length = img_size * img_size
 
 kernel = {'linear':0, 'polynomial':1, 'RBF':2}
+LOG = []
 
 def loadData(filepath):
     with open(filepath + 'X_train.csv', 'r') as file:
@@ -38,6 +38,7 @@ def loadData(filepath):
 
 def compare(_iter, X, Y, opt_option, opt_acc, cur_opt):
     acc = svm_train(Y, X, cur_opt)
+    LOG.append([cur_opt, acc])
     if acc > opt_acc:
         return _iter+1, cur_opt, acc
     return _iter+1, opt_option, opt_acc
@@ -93,7 +94,7 @@ if __name__ == "__main__":
     
     # Part 1.
     if _type == 1:
-        model = svm_train(train_label, train_img, '-t 0')
+        model = svm_train(train_label, train_img, '-t 1')
         result = svm_predict(test_label, test_img, model)
     
     # Part 2.
@@ -107,6 +108,7 @@ if __name__ == "__main__":
     # Part 3.
     if _type == 3:
         gamma = 1 / img_length
+        
         train_kernel = linearKernel(train_img, train_img) + RBFKernel(train_img, train_img, gamma)
         test_kernel = linearKernel(test_img, train_img) + RBFKernel(test_img, train_img, gamma)
         
