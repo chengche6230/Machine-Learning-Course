@@ -131,4 +131,5 @@ dmypy.json
 *.jpg
 *.spydata
 *.docx
+*.npy
 ML_HW5_Report.pdf
