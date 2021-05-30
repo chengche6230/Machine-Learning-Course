@@ -204,8 +204,7 @@ if __name__ == "__main__":
     #kernel = computeKernel(img)
     kernel = np.load(f'kernel_img{IMAGE}.npy')
     
-    #result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
-    result_file_path = './test'
+    result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
     try:
         os.mkdir(result_file_path)
         1
