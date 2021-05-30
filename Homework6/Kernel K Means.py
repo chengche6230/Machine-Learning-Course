@@ -201,8 +201,8 @@ if __name__ == "__main__":
     # Init mean and cluster assignment
     means, c, alpha = init(img)
     
-    #kernel = computeKernel(img)
-    kernel = np.load(f'kernel_img{IMAGE}.npy')
+    kernel = computeKernel(img)
+    #kernel = np.load(f'kernel_img{IMAGE}.npy')
     
     result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
     try:
