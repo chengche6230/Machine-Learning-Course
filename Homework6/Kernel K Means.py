@@ -207,7 +207,6 @@ if __name__ == "__main__":
     result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
     try:
         os.mkdir(result_file_path)
-        1
     except:
         pass
     
