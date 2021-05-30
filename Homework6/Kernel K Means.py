@@ -13,12 +13,12 @@ IMAGE = 1  # {1|2}
 img_length = 100
 img_size = 10000
 
-K = 2  # {2|3|4}
+K = 4  # {2|3|4}
 gamma_s = 1 / img_size
 gamma_c = 1 / (256 * 256)
 kernel = None
 
-METHOD = "random"  # {random|kmenas++|naive_sharding}
+METHOD = "naive_sharding"  # {random|kmeans++|naive_sharding}
 
 COLOR = [[[153, 102, 51], [0, 153, 255]],
          [[0, 102, 204], [51, 204, 204], [153, 102, 51]],
@@ -172,8 +172,8 @@ def computeChange(pre_alpha, alpha):
             delta += 1
     return delta
 
-def visualize(img, alpha):    
-    im = np.zeros((img_length, img_length, 3))
+def visualize(img, alpha, _iter, result_file_path):    
+    im = np.zeros((img_length, img_length, 3), dtype=np.uint8)
     for n in range(img_size):
         for k in range(K):
             if alpha[n][k] == 1:
@@ -181,15 +181,18 @@ def visualize(img, alpha):
     
     fig = plt.figure(figsize=(6, 4))
     ax = fig.add_subplot(1, 2, 1)
+    im = cv2.cvtColor(im, cv2.COLOR_RGB2BGR)
     ax.imshow(im)
+    plt.title(f"Iteration: {_iter}")
     
     ax = fig.add_subplot(1, 2, 2)
-    ax.imshow(img.reshape(img_length, img_length, 3))
+    img = cv2.cvtColor(img.reshape(img_length, img_length, 3), cv2.COLOR_RGB2BGR)
+    ax.imshow(img)
     plt.show()
-    return im
+    
+    fig.savefig(f'{result_file_path}/{_iter}.jpg')
 
 if __name__ == "__main__":
-    
     img = readImg(f'image{IMAGE}.png')
     pre_alpha = None
     delta = img_size
@@ -201,9 +204,11 @@ if __name__ == "__main__":
     #kernel = computeKernel(img)
     kernel = np.load(f'kernel_img{IMAGE}.npy')
     
-    result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
+    #result_file_path = f'./kkm result/img{IMAGE}_{K} class_{METHOD}'
+    result_file_path = './test'
     try:
         os.mkdir(result_file_path)
+        1
     except:
         pass
     
@@ -222,6 +227,4 @@ if __name__ == "__main__":
         print(f"Iter:{_iter}, delta:{delta}")
         
         # Visualize and save clustering result
-        result = visualize(img, alpha)
-        cv2.imwrite(f'{result_file_path}/{_iter}.jpg', result)
-        
+        visualize(img, alpha, _iter, result_file_path) 
