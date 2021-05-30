@@ -13,12 +13,12 @@ IMAGE = 1  # {1|2}
 img_length = 100
 img_size = 10000
 
-K = 4  # {2|3|4}
+K = 2  # {2|3|4}
 gamma_s = 1 / img_size
 gamma_c = 1 / (256 * 256)
 kernel = None
 
-METHOD = "naive_sharding"  # {random|kmeans++|naive_sharding}
+METHOD = "random"  # {random|kmeans++|naive_sharding}
 
 COLOR = [[[153, 102, 51], [0, 153, 255]],
          [[0, 102, 204], [51, 204, 204], [153, 102, 51]],
