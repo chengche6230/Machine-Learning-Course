@@ -13,8 +13,10 @@
 #  Copyright (c) 2008 Tilburg University. All rights reserved.
 
 import numpy as np
-import pylab
+import matplotlib.pyplot as plt
+import os
 
+file_path = './Experiment Result/SNE'
 
 def Hbeta(D=np.array([]), beta=1.0):
     """
@@ -29,7 +31,6 @@ def Hbeta(D=np.array([]), beta=1.0):
     P = P / sumP
     return H, P
 
-
 def x2p(X=np.array([]), tol=1e-5, perplexity=30.0):
     """
         Performs a binary search to get P-values in such a way that each
@@ -40,9 +41,9 @@ def x2p(X=np.array([]), tol=1e-5, perplexity=30.0):
     print("Computing pairwise distances...")
     (n, d) = X.shape
     sum_X = np.sum(np.square(X), 1)
-    D = np.add(np.add(-2 * np.dot(X, X.T), sum_X).T, sum_X)
+    D = np.add(np.add(-2 * np.dot(X, X.T), sum_X).T, sum_X) # Distance [2500, 2500]
     P = np.zeros((n, n))
-    beta = np.ones((n, 1))
+    beta = np.ones((n, 1)) # beta = 1 / sigma^2
     logU = np.log(perplexity)
 
     # Loop over all datapoints
@@ -89,7 +90,6 @@ def x2p(X=np.array([]), tol=1e-5, perplexity=30.0):
     print("Mean value of sigma: %f" % np.mean(np.sqrt(1 / beta)))
     return P
 
-
 def pca(X=np.array([]), no_dims=50):
     """
         Runs PCA on the NxD array X in order to reduce its dimensionality to
@@ -103,8 +103,7 @@ def pca(X=np.array([]), no_dims=50):
     Y = np.dot(X, M[:, 0:no_dims])
     return Y
 
-
-def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
+def SNE(X=np.array([]), labels=None, no_dims=2, initial_dims=50, perplexity=30, _type='t-SNE'):
     """
         Runs t-SNE on the dataset in the NxD array X to reduce its
         dimensionality to no_dims dimensions. The syntaxis of the function is
@@ -120,14 +119,14 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
         return -1
 
     # Initialize variables
-    X = pca(X, initial_dims).real
+    X = pca(X, initial_dims).real  # 784 -> 50
     (n, d) = X.shape
     max_iter = 1000
     initial_momentum = 0.5
     final_momentum = 0.8
     eta = 500
     min_gain = 0.01
-    Y = np.random.randn(n, no_dims)
+    Y = np.random.randn(n, no_dims) # Y is goal
     dY = np.zeros((n, no_dims))
     iY = np.zeros((n, no_dims))
     gains = np.ones((n, no_dims))
@@ -142,10 +141,13 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
     # Run iterations
     for iter in range(max_iter):
 
-        # Compute pairwise affinities
+        # Compute pairwise affinities >> qij
         sum_Y = np.sum(np.square(Y), 1)
         num = -2. * np.dot(Y, Y.T)
-        num = 1. / (1. + np.add(np.add(num, sum_Y).T, sum_Y))
+        if _type == 't-SNE':
+            num = 1. / (1. + np.add(np.add(num, sum_Y).T, sum_Y))
+        if _type == 'Symmetric SNE':
+            num = np.exp(-1. * np.add(np.add(num, sum_Y).T, sum_Y))
         num[range(n), range(n)] = 0.
         Q = num / np.sum(num)
         Q = np.maximum(Q, 1e-12)
@@ -153,7 +155,10 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
         # Compute gradient
         PQ = P - Q
         for i in range(n):
-            dY[i, :] = np.sum(np.tile(PQ[:, i] * num[:, i], (no_dims, 1)).T * (Y[i, :] - Y), 0)
+            if _type == 't-SNE':
+                dY[i, :] = np.sum(np.tile(PQ[:, i] * num[:, i], (no_dims, 1)).T * (Y[i, :] - Y), 0)
+            if _type == 'Symmetric SNE':
+                dY[i, :] = np.sum(np.tile(PQ[:, i], (no_dims, 1)).T * (Y[i, :] - Y), 0)
 
         # Perform the update
         if iter < 20:
@@ -171,20 +176,64 @@ def tsne(X=np.array([]), no_dims=2, initial_dims=50, perplexity=30.0):
         if (iter + 1) % 10 == 0:
             C = np.sum(P * np.log(P / Q))
             print("Iteration %d: error is %f" % (iter + 1, C))
-
+            
+        # Visualize
+        if (iter + 1) % 50 == 0:
+            visualize(Y, labels, no_dims, perplexity, _type, (iter + 1))
+            
         # Stop lying about P-values
         if iter == 100:
             P = P / 4.
 
     # Return solution
-    return Y
+    return Y, P, Q
 
+def visualize(Y, labels, no_dims, perplexity, method, _iter):
+    fig = plt.figure()
+    scatter = plt.scatter(Y[:, 0], Y[:, 1], s=20, c=labels)
+    plt.legend(*scatter.legend_elements(), loc='lower right', prop={'size': 7.8})
+    plt.title(f'{method} with perplexity={perplexity}, iter={_iter}')
+    plt.axis('off')
+    plt.show()
+    fig.savefig(f'{file_path}/{method}/per_{perplexity}/{_iter}.jpg')
+
+def plotSimilarity(P, Q, labels, _type, perplexity):    
+    fig, ax = plt.subplots(1, 2, figsize=(8, 4))
+    
+    idx = labels.argsort()
+    sortP = P[:, idx][idx]
+    sortQ = Q[:, idx][idx]
+    
+    ax[0].set_title(f'{_type} Similarity in High-D')
+    img = ax[0].imshow(np.log(sortP), cmap='gray')
+    fig.colorbar(img, ax=ax[0], shrink=0.7)
+    ax[0].axis('off')
+    
+    ax[1].set_title(f'{_type} Similarity in Low-D')
+    img = ax[1].imshow(np.log(sortQ), cmap='gray')
+    fig.colorbar(img, ax=ax[1], shrink=0.7)
+    ax[1].axis('off')
+    
+    fig.tight_layout()
+    fig.savefig(f'{file_path}/{_type}/per_{perplexity}/_similarity.jpg')
 
 if __name__ == "__main__":
     print("Run Y = tsne.tsne(X, no_dims, perplexity) to perform t-SNE on your dataset.")
     print("Running example on 2,500 MNIST digits...")
-    X = np.loadtxt("mnist2500_X.txt")
-    labels = np.loadtxt("mnist2500_labels.txt")
-    Y = tsne(X, 2, 50, 20.0)
-    pylab.scatter(Y[:, 0], Y[:, 1], 20, labels)
-    pylab.show()
+    
+    X = np.loadtxt("./MNIST data/mnist2500_X.txt")
+    labels = np.loadtxt("./MNIST data/mnist2500_labels.txt")
+    
+    _type = 't-SNE'  # {t-SNE|Symmetric SNE}
+    perplexity = 20  # {5|20|35|50}
+    dims = 2
+    init_dims = 50
+    
+    try:
+        os.mkdir(f'{file_path}/{_type}/per_{perplexity}')
+    except:
+        pass
+    
+    Y, P, Q = SNE(X, labels, dims, init_dims, perplexity, _type)
+    visualize(Y, labels, dims, perplexity, _type, 'Final')
+    plotSimilarity(P, Q, labels, _type, perplexity)
