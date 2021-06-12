@@ -12,8 +12,8 @@ subject_num = 15
 image_num = 11
 train_num = 9
 test_num = 2
+
 height, width = 231, 195
-D = height * width
 expression = ['centerlight', 'glasses', 'happy', 'leftlight',
               'noglasses', 'normal', 'rightlight', 'sad',
               'sleepy', 'surprised', 'wink']
@@ -79,9 +79,11 @@ def imageCompression(data, S):
         for i in range(0, height - S + 1, S):
             for j in range(0, width - S + 1, S):
                 tmp = 0
+                # Summation SxS area in original image
                 for r in range(S):
                     for c in range(S):
                         tmp += img[i + r][j + c]
+                # New value is the avg. value of SxS area in original image
                 d[n][i//S][j//S] = tmp // (S**2)
     return d.reshape(len(data),-1)
 
@@ -99,25 +101,21 @@ def LDA(data, k=25, S=1):
     # Pseudo inv.
     eigenvalue, eigenvector = np.linalg.eig(np.linalg.pinv(Sw) @ Sb)
     
-    # Normalize w
     for i in range(len(eigenvector[0])):
         eigenvector[:,i] = eigenvector[:,i] / np.linalg.norm(eigenvector[:,i])
-        
-    # Seclect first k largest eigenvalues
     eigenindex = np.argsort(-eigenvalue)
     eigenvector = eigenvector[:, eigenindex]
-    
     W = eigenvector[:, :k].real
-    
+
     return W, mean
 
 def linearKernel(datai, dataj):
     return datai @ dataj.T
 
-def polynomialKernel(datai, dataj, gamma=1/(height*width), c=1, d=3):
+def polynomialKernel(datai, dataj, gamma=1e-2, c=0.1, d=2):
     return (gamma * (datai @ dataj.T) + c) ** d
 
-def rbfKernel(datai, dataj, gamma=1/(height*width*255*255)):
+def rbfKernel(datai, dataj, gamma=1e-8):
     K = np.zeros((len(datai), len(dataj)))
     for i in range(len(datai)):
         for j in range(len(dataj)):
@@ -139,24 +137,20 @@ def centered(K):
     return KC
 
 def kernelPCA(data, kernel_type, k=25):
-    # K: 135x135
     K = computeKernel(data, data, kernel_type)
     
     # centered K
-    KC = centered(K)
+    # no need to do this step cuz data has subtracted avgFace in advance
+    #KC = centered(K)
     
-    eigenvalue, eigenvector = np.linalg.eig(KC) 
-    # Normalize w
+    eigenvalue, eigenvector = np.linalg.eig(K) 
     for i in range(len(eigenvector[0])):
         eigenvector[:,i] = eigenvector[:,i] / np.linalg.norm(eigenvector[:,i])
-        
-    # Seclect first k largest eigenvalues
     eigenindex = np.argsort(-eigenvalue)
     eigenvector = eigenvector[:, eigenindex]
-    
     W = eigenvector[:, :k].real
-    
-    return W, KC
+
+    return W, K
 
 def kernelLDA(data, kernel_type, k=25):
     Z = np.full((len(data), len(data)), 1 / train_num)
@@ -167,15 +161,10 @@ def kernelLDA(data, kernel_type, k=25):
     
     # Pseudo inv.
     eigenvalue, eigenvector = np.linalg.eig(np.linalg.pinv(Sw) @ Sb)
-    
-    # Normalize w
     for i in range(len(eigenvector[0])):
         eigenvector[:,i] = eigenvector[:,i] / np.linalg.norm(eigenvector[:,i])
-        
-    # Seclect first k largest eigenvalues
     eigenindex = np.argsort(-eigenvalue)
     eigenvector = eigenvector[:, eigenindex]
-    
     W = eigenvector[:, :k].real
     
     return W, K
@@ -186,15 +175,6 @@ def eigenFace(W, file_path, k=25, S=1):
         img = W[:,i].reshape(height//S, width//S)
         plt.imshow(img, cmap='gray')
         fig.savefig(f'{file_path}eigenface_{i:02d}.jpg')
-    
-    fig = plt.figure(figsize=(12, 9))
-    for i in range(k):
-        img = W[:,i].reshape(height//S, width//S)
-        row = int(np.sqrt(k))
-        ax = fig.add_subplot(row, row, i + 1)
-        ax.imshow(img, cmap='gray')
-    fig.savefig(f'{file_path}../eigenfaces_{k}.jpg')
-    plt.show()
 
     fig = plt.figure(figsize=(12, 9))
     for i in range(k):
@@ -215,13 +195,12 @@ def reconstructFace(W, mean, data, file_path, S=1):
         x = data[index].reshape(1, -1)
         reconstruct = (x - mean) @ W @ W.T + mean
         img.append(reconstruct.reshape(height//S, width//S))
-        fig = plt.figure()
-        ax = fig.add_subplot(1, 2, 1)
-        ax.imshow(x.reshape(height//S, width//S), cmap='gray')
-        ax = fig.add_subplot(1, 2, 2)
-        ax.imshow(reconstruct.reshape(height//S, width//S), cmap='gray')
+        fig, ax = plt.subplots(1, 2)
+        ax[0].imshow(x.reshape(height//S, width//S), cmap='gray') # Original face
+        ax[1].imshow(reconstruct.reshape(height//S, width//S), cmap='gray') # Reconstruct face
         fig.savefig(f'{file_path}reconfaces_{len(img)}.jpg')
     
+    # Put all reconstruct faces together
     fig = plt.figure(figsize=(10, 4))
     for i in range(len(img)):
         ax = fig.add_subplot(2, 5, i + 1)
@@ -232,27 +211,27 @@ def reconstructFace(W, mean, data, file_path, S=1):
 def distance(test, train_data):
     dist = np.zeros(len(train_data), dtype=np.float32)
     for j in range(len(train_data)):
-        dist[j] = np.sum((test - train_data[j]) ** 2)
+        dist[j] = np.sum((test - train_data[j]) ** 2) # Euclidean distance
     return dist
 
 def faceRecongnition(W, mean, train_data, test_data, K):
     if mean is None:
         mean = np.zeros(W.shape[0])
-
+    
+    # KNN
     err = 0
     low_train = (train_data - mean) @ W
     low_test = (test_data - mean) @ W
     for i in range(len(low_test)):
         vote = np.zeros(subject_num, dtype=int)
-        dist = distance(low_test[i], low_train)
+        dist = distance(low_test[i], low_train) # Compute distance to all train_data
         nearest = np.argsort(dist)[:K]
         for n in nearest:
             vote[n // train_num] += 1
         predict = np.argmax(vote) + 1
-        #print(i // 2 + 1, predict, vote)
         if predict != i // 2 + 1:
             err += 1
-    print(f"K={K}: Accuracy:{1 - err/len(low_test):.4f}, err({err}/{len(low_test)})")
+    print(f"K={K}: Accuracy:{1 - err/len(low_test):.4f} ({len(low_test) - err}/{len(low_test)})")
     return 1 - err/len(low_test)
     
 def centeredTest(K_test, K):
@@ -265,9 +244,7 @@ def centeredTest(K_test, K):
 def kernelFaceRecongnition(W, train_data, test_data, kernel_type, kernel, K):
     low_train = kernel @ W
     
-    K_test = computeKernel(test_data, train_data, kernel_type)
-    #K_testC = centeredTest(K_test, kernel)
-    
+    K_test = computeKernel(test_data, train_data, kernel_type)    
     low_test = K_test @ W
     
     # KNN
@@ -282,16 +259,14 @@ def kernelFaceRecongnition(W, train_data, test_data, kernel_type, kernel, K):
         #print(i // 2 + 1, predict, vote)
         if predict != i // 2 + 1:
             err += 1
-    print(f"K={K}: Accuracy:{1 - err/len(low_test):.4f}, err({err}/{len(low_test)})")
+    print(f"K={K}: Accuracy:{1 - err/len(low_test):.4f} ({len(low_test) - err}/{len(low_test)})")
     return 1 - err/len(low_test)
 
-#%%
 if __name__ == "__main__":
     train_data, test_data = readData()
     dim = 25
     acc = 0
-    
-    task = 2
+    task = 1
     
     # PCA
     if task == 1:
@@ -310,24 +285,31 @@ if __name__ == "__main__":
         compress_test = imageCompression(test_data, scalar)
         
         W_LDA, mean_LDA = LDA(data, k=dim, S=scalar)
-        print("LDA done.")
         eigenFace(W_LDA, LDA_file + 'fisherfaces/', k=dim, S=scalar)
-        reconstructFace(W_LDA, mean_LDA, data, LDA_file + 'reconstruct/', S=scalar)
+        reconstructFace(W_LDA, None, data, LDA_file + 'reconstruct/', S=scalar)
         for i in range(1, 20, 2):
-            acc += faceRecongnition(W_LDA, mean_LDA, data, compress_test, i)
+            acc += faceRecongnition(W_LDA, None, data, compress_test, i)
     
     # Kernel PCA
     if task == 3:
         kernel_type = 'rbf'
-        W_kPCA, kernel = kernelPCA(train_data, kernel_type, k=dim)
+        avgFace = np.mean(train_data, axis=0)
+        centered_train = train_data - avgFace
+        centered_test = test_data - avgFace
+
+        W_kPCA, kernel = kernelPCA(centered_train, kernel_type, k=dim)
         for i in range(1, 20, 2):
-            acc += kernelFaceRecongnition(W_kPCA, train_data, test_data, kernel_type, kernel, i)
+            acc += kernelFaceRecongnition(W_kPCA, centered_train, centered_test, kernel_type, kernel, i)
     
     # Kernel LDA
     if task == 4:
         kernel_type = 'rbf'
-        W_kLDA, kernel = kernelLDA(train_data, kernel_type)
+        avgFace = np.mean(train_data, axis=0)
+        centered_train = train_data - avgFace
+        centered_test = test_data - avgFace
+        
+        W_kLDA, kernel = kernelLDA(centered_train, kernel_type)
         for i in range(1, 20, 2):
-            acc += kernelFaceRecongnition(W_kLDA, train_data, test_data, kernel_type, kernel, i)
+            acc += kernelFaceRecongnition(W_kLDA, centered_train, centered_test, kernel_type, kernel, i)
 
     print(f"Average accuracy:{acc / 10: .4f}")
