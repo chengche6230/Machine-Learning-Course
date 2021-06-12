@@ -188,14 +188,14 @@ def SNE(X=np.array([]), labels=None, no_dims=2, initial_dims=50, perplexity=30, 
     # Return solution
     return Y, P, Q
 
-def visualize(Y, labels, no_dims, perplexity, method, _iter):
+def visualize(Y, labels, no_dims, perplexity, _type, _iter):
     fig = plt.figure()
     scatter = plt.scatter(Y[:, 0], Y[:, 1], s=20, c=labels)
     plt.legend(*scatter.legend_elements(), loc='lower right', prop={'size': 7.8})
-    plt.title(f'{method} with perplexity={perplexity}, iter={_iter}')
+    plt.title(f'{_type} with perplexity={perplexity}, iter={_iter}')
     plt.axis('off')
     plt.show()
-    fig.savefig(f'{file_path}/{method}/per_{perplexity}/{_iter}.jpg')
+    fig.savefig(f'{file_path}/{_type}/per_{perplexity}/{_iter}.jpg')
 
 def plotSimilarity(P, Q, labels, _type, perplexity):    
     fig, ax = plt.subplots(1, 2, figsize=(8, 4))
@@ -225,7 +225,7 @@ if __name__ == "__main__":
     labels = np.loadtxt("./MNIST data/mnist2500_labels.txt")
     
     _type = 't-SNE'  # {t-SNE|Symmetric SNE}
-    perplexity = 20  # {5|20|35|50}
+    perplexity = 30  # {5|20|35|50}
     dims = 2
     init_dims = 50
     
